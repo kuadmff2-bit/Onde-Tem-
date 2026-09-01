@@ -328,3 +328,64 @@
 
   document.querySelectorAll('input[type="file"][name="image"]').forEach(decorateInput);
 })();
+
+(()=>{
+  const button=document.querySelector('[data-dash="profile"]');
+  if(!button)return;
+
+  function escapeValue(value=''){
+    return String(value).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function renderProfile(){
+    const box=document.getElementById('dashboardContent');
+    if(!box||!state?.user)return;
+    document.querySelectorAll('[data-dash]').forEach(x=>x.classList.toggle('active',x===button));
+    box.innerHTML=`
+      <div class="profile-settings">
+        <h2>Dados da conta</h2>
+        <p>Altere seu nome e o WhatsApp usado para entrar na conta.</p>
+        <form id="profileSettingsForm" class="form-panel active">
+          <label>Nome completo
+            <input name="name" maxlength="100" required value="${escapeValue(state.user.name||'')}">
+          </label>
+          <label>WhatsApp
+            <input name="phone" inputmode="tel" maxlength="15" required value="${escapeValue(state.user.phone||'')}">
+          </label>
+          <div class="profile-settings-note">Ao alterar o WhatsApp, use o novo número no próximo login.</div>
+          <label>Confirme sua senha atual
+            <input name="currentPassword" type="password" minlength="8" maxlength="72" required autocomplete="current-password">
+          </label>
+          <button class="submit" type="submit">Salvar alterações</button>
+          <p class="form-message" id="profileSettingsMessage"></p>
+        </form>
+      </div>`;
+
+    const form=document.getElementById('profileSettingsForm');
+    form.addEventListener('submit',async e=>{
+      e.preventDefault();
+      const message=document.getElementById('profileSettingsMessage');
+      const submit=form.querySelector('button[type="submit"]');
+      const original=submit.textContent;
+      submit.disabled=true;submit.textContent='Salvando...';message.textContent='';
+      try{
+        const payload=Object.fromEntries(new FormData(form));
+        const data=await api('/api/auth/update-profile',{method:'POST',body:JSON.stringify(payload)});
+        state.user=data.user;
+        updateUserUI();
+        document.getElementById('dashName').textContent=state.user.name;
+        document.getElementById('dashPhone').textContent=state.user.phone;
+        message.style.color='#15803d';
+        message.textContent='Dados atualizados com sucesso.';
+        form.currentPassword.value='';
+      }catch(error){
+        message.style.color='#b91c1c';
+        message.textContent=error.message||'Não foi possível atualizar seus dados.';
+      }finally{
+        submit.disabled=false;submit.textContent=original;
+      }
+    });
+  }
+
+  button.onclick=renderProfile;
+})();
