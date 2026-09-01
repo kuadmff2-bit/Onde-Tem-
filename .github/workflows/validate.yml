@@ -1,0 +1,41 @@
+name: Validar Onde Tem
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Baixar projeto
+        uses: actions/checkout@v6
+
+      - name: Preparar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Validar JavaScript
+        run: |
+          node --check worker.js
+          node --check public/app.js
+
+      - name: Conferir arquivos essenciais
+        run: |
+          test -f public/index.html
+          test -f public/styles.css
+          test -f public/logo-mark.svg
+          test -f public/404.html
+          test -f public/privacidade.html
+          test -f schema.sql
+          test -f wrangler.toml
+
+      - name: Validar empacotamento Cloudflare
+        run: npx --yes wrangler@4.92.0 deploy --dry-run
