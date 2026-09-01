@@ -14,5 +14,9 @@ binding = "DB"
 database_name = "onde-tem-db"
 database_id = "91824c37-4c44-4736-af8d-25e362f63146"
 
-# O R2 é opcional para fotos. Quando ativado, use binding = "MEDIA".
-# Defina o WhatsApp do administrador com: npx wrangler secret put ADMIN_PHONE
+[[r2_buckets]]
+binding = "MEDIA"
+bucket_name = "onde-tem-media"
+
+# O WhatsApp administrador e configurado como secret da Cloudflare:
+# npx wrangler secret put ADMIN_PHONE
