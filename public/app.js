@@ -13,7 +13,7 @@ let state={businesses:demoBusinesses,listings:demoListings,user:null,category:'T
 function normalize(v=''){return v.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim()}
 function money(v){return Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
 function escapeHtml(v=''){return String(v).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#039;','"':'&quot;'}[c]))}
-function toast(msg){const el=$('#toast');el.textContent=msg;el.classList.add('show');clearTimeout(window.__toast);window.__toast=setTimeout(()=>el.classList.remove('show'),2800)}
+function toast(msg){const el=$('#toast');el.textContent=msg;el.classList.add('show');clearTimeout(window.__toast);window.__toast=setTimeout(()=>el.classList.remove('show'),3500)}
 function openDialog(id){const d=$(`#${id}`);if(d&&!d.open)d.showModal()}
 function closeDialog(id){const d=$(`#${id}`);if(d?.open)d.close()}
 function wa(phone,text){if(!phone)return '#';return `https://wa.me/${phone.replace(/\D/g,'')}?text=${encodeURIComponent(text)}`}
@@ -52,7 +52,26 @@ $('#registerForm').onsubmit=async e=>{e.preventDefault();const f=new FormData(e.
 $('#recoveryForm').onsubmit=async e=>{e.preventDefault();const f=new FormData(e.currentTarget);try{await api('/api/auth/recovery-request',{method:'POST',body:JSON.stringify(Object.fromEntries(f))});$('#recoveryMessage').style.color='#15803d';$('#recoveryMessage').textContent='Solicitação enviada ao suporte.'}catch(err){$('#recoveryMessage').textContent=state.backend?err.message:'A recuperação ficará ativa com o banco D1.'}};
 
 $$('[data-create-tab]').forEach(b=>b.onclick=()=>{$$('[data-create-tab]').forEach(x=>x.classList.toggle('active',x===b));$$('[data-create-panel]').forEach(x=>x.classList.toggle('active',x.dataset.createPanel===b.dataset.createTab))});
-async function submitWithImage(form,path,messageEl){const fd=new FormData(form);try{await api(path,{method:'POST',body:fd});messageEl.style.color='#15803d';messageEl.textContent='Enviado! Agora aguarda aprovação.';form.reset();await loadCatalog()}catch(err){messageEl.style.color='#b91c1c';messageEl.textContent=state.backend?err.message:'Conecte D1/R2 no Cloudflare para publicar anúncios de verdade.'}}
+async function submitWithImage(form,path,messageEl){
+  const fd=new FormData(form);
+  const submit=form.querySelector('button.submit');
+  const original=submit?.textContent;
+  if(submit){submit.disabled=true;submit.textContent='Enviando...'}
+  try{
+    await api(path,{method:'POST',body:fd});
+    form.reset();
+    messageEl.textContent='';
+    closeDialog('createDialog');
+    await loadCatalog();
+    window.scrollTo({top:0,behavior:'smooth'});
+    toast(path==='/api/listings'?'✅ Publicação enviada para análise!':'✅ Cadastro enviado para análise!');
+  }catch(err){
+    messageEl.style.color='#b91c1c';
+    messageEl.textContent=state.backend?err.message:'Conecte D1/R2 no Cloudflare para publicar anúncios de verdade.';
+  }finally{
+    if(submit){submit.disabled=false;submit.textContent=original}
+  }
+}
 $('#listingForm').onsubmit=e=>{e.preventDefault();submitWithImage(e.currentTarget,'/api/listings',$('#listingMessage'))};
 $('#businessForm').onsubmit=e=>{e.preventDefault();submitWithImage(e.currentTarget,'/api/businesses',$('#businessMessage'))};
 
@@ -60,6 +79,15 @@ $$('[data-dash]').forEach(b=>b.onclick=()=>{$$('[data-dash]').forEach(x=>x.class
 $('#logoutButton').onclick=async()=>{try{await api('/api/auth/logout',{method:'POST',body:'{}'})}catch{}state.user=null;updateUserUI();closeDialog('accountDialog');toast('Você saiu da conta.')};
 async function renderDashboard(tab){const box=$('#dashboardContent');if(!state.user)return;$('#dashName').textContent=state.user.name;$('#dashPhone').textContent=state.user.phone;box.innerHTML='<p>Carregando...</p>';if(tab==='overview'){let mine={listings:[],businesses:[],favorites:[]};try{mine=await api('/api/me/summary')}catch{}box.innerHTML=`<h2>Olá, ${escapeHtml(state.user.name.split(' ')[0])}!</h2><p>Gerencie seus anúncios e negócios em um só lugar.</p><div class="dash-stat-grid"><div class="dash-stat"><strong>${mine.listings?.length||0}</strong><span>Meus anúncios</span></div><div class="dash-stat"><strong>${mine.businesses?.length||0}</strong><span>Meus negócios</span></div><div class="dash-stat"><strong>${mine.favorites?.length||0}</strong><span>Favoritos</span></div></div>`;return}if(tab==='password'){box.innerHTML=`<h2>Alterar senha</h2><form id="changePasswordForm" class="form-panel active" style="max-width:420px"><label>Senha atual<input type="password" name="currentPassword" minlength="8" required></label><label>Nova senha<input type="password" name="newPassword" minlength="8" maxlength="72" required></label><label>Confirmar nova senha<input type="password" name="confirmPassword" minlength="8" maxlength="72" required></label><button class="submit">Alterar senha</button><p class="form-message" id="changePasswordMessage"></p></form>`;$('#changePasswordForm').onsubmit=changePassword;return}if(tab==='admin'){await renderAdmin(box);return}try{const endpoint=tab==='my-listings'?'/api/me/listings':tab==='my-businesses'?'/api/me/businesses':'/api/favorites';const data=await api(endpoint);const rows=data.items||[];box.innerHTML=`<h2>${tab==='my-listings'?'Meus anúncios':tab==='my-businesses'?'Meus negócios':'Favoritos'}</h2><div class="dash-list">${rows.length?rows.map(r=>`<div class="dash-item"><div><strong>${escapeHtml(r.title||r.name||'Item')}</strong><br><small>${escapeHtml(r.status||r.category||'')}</small></div><span>${r.price!=null?money(r.price):''}</span></div>`).join(''):'<div class="empty">Nada por aqui ainda.</div>'}</div>`}catch(err){box.innerHTML=`<div class="empty">${escapeHtml(err.message)}</div>`}}
 async function changePassword(e){e.preventDefault();const f=Object.fromEntries(new FormData(e.currentTarget));if(f.newPassword!==f.confirmPassword){$('#changePasswordMessage').textContent='As novas senhas não são iguais.';return}try{await api('/api/auth/change-password',{method:'POST',body:JSON.stringify(f)});$('#changePasswordMessage').style.color='#15803d';$('#changePasswordMessage').textContent='Senha alterada com sucesso.';e.currentTarget.reset()}catch(err){$('#changePasswordMessage').textContent=err.message}}
-async function renderAdmin(box){if(state.user?.role!=='admin'){box.innerHTML='<div class="empty">Acesso restrito.</div>';return}try{const data=await api('/api/admin/pending');const rows=[...(data.listings||[]).map(x=>({...x,kind:'listing'})),...(data.businesses||[]).map(x=>({...x,kind:'business'}))];box.innerHTML=`<h2>Painel Admin</h2><p>Itens aguardando aprovação.</p><div class="dash-list">${rows.length?rows.map(r=>`<div class="dash-item"><div><strong>${escapeHtml(r.title||r.name)}</strong><br><small>${escapeHtml(r.city||'')} • ${r.kind==='listing'?'Classificado':'Negócio'}</small></div><div><button data-moderate="approve:${r.kind}:${r.id}">Aprovar</button> <button data-moderate="reject:${r.kind}:${r.id}">Recusar</button></div></div>`).join(''):'<div class="empty">Nenhum item pendente.</div>'}</div>`;$$('[data-moderate]',box).forEach(b=>b.onclick=async()=>{const[action,kind,id]=b.dataset.moderate.split(':');try{await api(`/api/admin/moderate`,{method:'POST',body:JSON.stringify({action,kind,id})});toast('Moderação atualizada.');renderAdmin(box);loadCatalog()}catch(err){toast(err.message)}})}catch(err){box.innerHTML=`<div class="empty">${escapeHtml(err.message)}</div>`}}
+function adminReviewCard(r){
+  const isListing=r.kind==='listing';
+  const title=escapeHtml(r.title||r.name||'Publicação');
+  const image=r.image_url?`<img src="${escapeHtml(r.image_url)}" alt="${title}" loading="lazy">`:'<div class="admin-review-noimage">Sem foto</div>';
+  const details=isListing
+    ?`<div class="admin-review-price">${money(r.price)}</div><div class="admin-review-meta"><span>${escapeHtml(r.category||'')}</span><span>${escapeHtml(r.condition||'')}</span><span>📍 ${escapeHtml(r.city||'')}</span></div>`
+    :`<div class="admin-review-meta"><span>${escapeHtml(r.category||'')}</span><span>${r.kind==='professional'?'Profissional':'Negócio'}</span><span>📍 ${escapeHtml(r.city||'')}</span></div><div class="admin-review-extra"><strong>Endereço:</strong> ${escapeHtml(r.address||'Não informado')}<br><strong>Horário:</strong> ${escapeHtml(r.hours||'Não informado')}</div>`;
+  return `<article class="admin-review-card"><div class="admin-review-image">${image}</div><div class="admin-review-content"><div class="admin-review-head"><div><span class="admin-review-type">${isListing?'CLASSIFICADO':'CADASTRO LOCAL'}</span><h3>${title}</h3></div></div>${details}<p class="admin-review-description">${escapeHtml(r.description||'Sem descrição.')}</p><div class="admin-review-owner"><span><strong>Enviado por:</strong> ${escapeHtml(r.owner||'Usuário')}</span>${r.owner_phone?`<span><strong>WhatsApp:</strong> ${escapeHtml(r.owner_phone)}</span>`:''}${r.created_at?`<span><strong>Data:</strong> ${escapeHtml(r.created_at)}</span>`:''}</div><div class="admin-review-actions"><button class="approve" data-moderate="approve:${r.kind}:${r.id}">✓ Aprovar</button><button class="reject" data-moderate="reject:${r.kind}:${r.id}">✕ Recusar</button></div></div></article>`;
+}
+async function renderAdmin(box){if(state.user?.role!=='admin'){box.innerHTML='<div class="empty">Acesso restrito.</div>';return}try{const data=await api('/api/admin/pending');const rows=[...(data.listings||[]).map(x=>({...x,kind:'listing'})),...(data.businesses||[]).map(x=>({...x,kind:x.kind||'business'}))];box.innerHTML=`<h2>Painel Admin</h2><p>Revise todos os dados antes de aprovar uma publicação.</p><div class="admin-review-list">${rows.length?rows.map(adminReviewCard).join(''):'<div class="empty">Nenhum item pendente.</div>'}</div>`;$$('[data-moderate]',box).forEach(b=>b.onclick=async()=>{const[action,kind,id]=b.dataset.moderate.split(':');b.disabled=true;try{await api('/api/admin/moderate',{method:'POST',body:JSON.stringify({action,kind:kind==='professional'?'business':kind,id})});toast(action==='approve'?'Publicação aprovada.':'Publicação recusada.');await renderAdmin(box);await loadCatalog()}catch(err){toast(err.message);b.disabled=false}})}catch(err){box.innerHTML=`<div class="empty">${escapeHtml(err.message)}</div>`}}
 
 loadCatalog();
