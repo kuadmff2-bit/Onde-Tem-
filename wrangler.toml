@@ -1,0 +1,14 @@
+name = "onde-tem"
+main = "worker.js"
+compatibility_date = "2026-09-01"
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+run_worker_first = ["/api/*", "/media/*"]
+not_found_handling = "404-page"
+html_handling = "auto-trailing-slash"
+
+# Depois de criar o D1, adicione aqui o bloco [[d1_databases]] com binding = "DB".
+# O R2 é opcional para fotos. Quando ativado, use binding = "MEDIA".
+# Defina o WhatsApp do administrador com: npx wrangler secret put ADMIN_PHONE
