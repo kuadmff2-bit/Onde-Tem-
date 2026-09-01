@@ -4,6 +4,7 @@
   const OUTPUT_HEIGHT=900;
   const states=new Map();
   let active=null;
+  let suspendedDialog=null;
 
   const overlay=document.createElement('div');
   overlay.className='photo-editor-overlay';
@@ -95,7 +96,7 @@
     if(name)name.textContent=`${file.name} • ${formatSize(file.size)}`;
   }
 
-  function decorateInput(input,index){
+  function decorateInput(input){
     if(input.dataset.photoEditorReady)return;
     input.dataset.photoEditorReady='1';
     const oldLabel=input.closest('label');
@@ -152,6 +153,12 @@
   }
 
   function openEditor(input,file,isEditing){
+    const parentDialog=input.closest('dialog');
+    if(parentDialog?.open){
+      suspendedDialog=parentDialog;
+      parentDialog.close();
+    }
+
     const url=URL.createObjectURL(file);
     const img=new Image();
     img.onload=()=>{
@@ -169,8 +176,16 @@
       URL.revokeObjectURL(url);
       showToast('Não foi possível abrir essa imagem.');
       assignFile(input,states.get(input)?.file||null);
+      restoreParentDialog();
     };
     img.src=url;
+  }
+
+  function restoreParentDialog(){
+    if(suspendedDialog&&!suspendedDialog.open){
+      try{suspendedDialog.showModal()}catch{suspendedDialog.setAttribute('open','')}
+    }
+    suspendedDialog=null;
   }
 
   function scaledSize(){
@@ -230,15 +245,19 @@
   }
 
   function cancelEditor(){
-    if(!active)return closeEditor(false);
+    if(!active){
+      restoreParentDialog();
+      return closeEditor();
+    }
     assignFile(active.input,states.get(active.input)?.file||null);
-    closeEditor(false);
+    closeEditor();
   }
 
   function closeEditor(){
     overlay.hidden=true;
     document.documentElement.classList.remove('photo-editor-open');
     active=null;
+    restoreParentDialog();
   }
 
   zoomInput.addEventListener('input',()=>setZoom(zoomInput.value));
@@ -291,10 +310,11 @@
     const sx=OUTPUT_WIDTH/canvas.width,sy=OUTPUT_HEIGHT/canvas.height;
     out.fillStyle='#fff';out.fillRect(0,0,OUTPUT_WIDTH,OUTPUT_HEIGHT);
     out.drawImage(active.img,active.x*sx,active.y*sy,w*sx,h*sy);
+    const originalName=active.file.name||'foto';
     output.toBlob(blob=>{
       saveButton.disabled=false;saveButton.textContent='Usar esta foto';
       if(!blob){showToast('Não foi possível processar a foto.');return;}
-      const base=(active.file.name||'foto').replace(/\.[^.]+$/,'').replace(/[^a-zA-Z0-9_-]+/g,'-').slice(0,50)||'foto';
+      const base=originalName.replace(/\.[^.]+$/,'').replace(/[^a-zA-Z0-9_-]+/g,'-').slice(0,50)||'foto';
       const finalFile=new File([blob],`${base}-editada.jpg`,{type:'image/jpeg',lastModified:Date.now()});
       setFinalFile(input,finalFile);
       closeEditor();
