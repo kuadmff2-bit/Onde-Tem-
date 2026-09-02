@@ -54,13 +54,10 @@ export default {
       return visibleOwnBusinesses(request,env);
     }
 
-    // API, mídia e todas as rotas de sistema continuam usando o backend completo.
     if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/media/')) {
       return enhancedApi.fetch(request, env);
     }
 
-    // Arquivos públicos são servidos diretamente. As melhorias visuais/JS
-    // são referenciadas pela própria página, evitando injeção duplicada.
     const response = await baseApp.fetch(request, env);
     const headers = new Headers(response.headers);
     headers.set('permissions-policy', 'camera=(), microphone=(), geolocation=(self)');
@@ -69,6 +66,14 @@ export default {
       headers.set('cache-control', 'no-cache, no-store, must-revalidate');
       headers.set('pragma', 'no-cache');
       headers.set('expires', '0');
+      const htmlResponse=new Response(response.body,{status:response.status,statusText:response.statusText,headers});
+      return new HTMLRewriter()
+        .on('script[src*="enhancements.js"]',{element(e){e.setAttribute('src','/enhancements.js?v=20260902-3')}})
+        .transform(htmlResponse);
+    }
+
+    if(url.pathname==='/enhancements.js'||url.pathname==='/enhancements.css'){
+      headers.set('cache-control','no-cache, no-store, must-revalidate');
     }
 
     return new Response(response.body, {
