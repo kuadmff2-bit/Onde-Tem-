@@ -1,9 +1,58 @@
 import enhancedApi from './worker-entry.js';
 import baseApp from './worker.js';
 
+function json(data,status=200){
+  return new Response(JSON.stringify(data),{status,headers:{
+    'content-type':'application/json; charset=utf-8',
+    'cache-control':'no-store',
+    'x-content-type-options':'nosniff'
+  }});
+}
+
+async function currentUser(request,env){
+  const url=new URL(request.url);
+  url.pathname='/api/auth/me';
+  url.search='';
+  const response=await enhancedApi.fetch(new Request(url,{method:'GET',headers:request.headers}),env);
+  if(!response.ok)return null;
+  const data=await response.json().catch(()=>({}));
+  return data.user||null;
+}
+
+async function visibleOwnListings(request,env){
+  const user=await currentUser(request,env);
+  if(!user)return json({error:'Entre na sua conta para continuar.'},401);
+  const r=await env.DB.prepare(`
+    SELECT id,title,status,price,category,condition_text AS condition,city,description,image_url,created_at
+    FROM listings
+    WHERE user_id=? AND status<>'sold'
+    ORDER BY created_at DESC
+  `).bind(user.id).all();
+  return json({items:r.results});
+}
+
+async function visibleOwnBusinesses(request,env){
+  const user=await currentUser(request,env);
+  if(!user)return json({error:'Entre na sua conta para continuar.'},401);
+  const r=await env.DB.prepare(`
+    SELECT id,kind,name,status,category,city,address,hours,description,image_url,created_at
+    FROM businesses
+    WHERE user_id=? AND status<>'rejected'
+    ORDER BY created_at DESC
+  `).bind(user.id).all();
+  return json({items:r.results});
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+
+    if(url.pathname==='/api/me/listings'&&request.method==='GET'){
+      return visibleOwnListings(request,env);
+    }
+    if(url.pathname==='/api/me/businesses'&&request.method==='GET'){
+      return visibleOwnBusinesses(request,env);
+    }
 
     // API, mídia e todas as rotas de sistema continuam usando o backend completo.
     if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/media/')) {
@@ -11,8 +60,7 @@ export default {
     }
 
     // Arquivos públicos são servidos diretamente. As melhorias visuais/JS
-    // agora são referenciadas pela própria página, evitando injeção duplicada
-    // e problemas de cache em navegadores móveis.
+    // são referenciadas pela própria página, evitando injeção duplicada.
     const response = await baseApp.fetch(request, env);
     const headers = new Headers(response.headers);
     headers.set('permissions-policy', 'camera=(), microphone=(), geolocation=(self)');
