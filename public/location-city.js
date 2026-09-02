@@ -29,6 +29,9 @@
   }
 
   function cityName(data){
+    const administrative=Array.isArray(data?.localityInfo?.administrative)?data.localityInfo.administrative:[];
+    const municipality=administrative.find(item=>Number(item?.adminLevel)===8&&item?.name);
+    if(municipality?.name)return String(municipality.name).trim();
     return String(data?.city||data?.locality||'').trim();
   }
 
@@ -68,7 +71,6 @@
 
   async function resolveClickedLocation(button){
     const serial=++requestSerial;
-    const originalText=button?.textContent;
     const status=document.querySelector('#locationStatus');
     if(status)status.textContent='📍 Identificando sua cidade...';
 
@@ -86,8 +88,6 @@
     }catch(error){
       console.warn('Falha ao identificar cidade pela localização',error);
       if(status)status.textContent='📍 Localização precisa ativada • cidade não identificada';
-    }finally{
-      if(button&&button.id!=='useLocationButton'&&originalText&&button.disabled)button.disabled=false;
     }
   }
 
