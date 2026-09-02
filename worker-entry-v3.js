@@ -29,7 +29,7 @@ export default {
       return new HTMLRewriter()
         .on('body', {
           element(element) {
-            element.append('<script src="/location-city.js?v=20260902-1" defer></script>', { html: true });
+            element.append('<script src="/location-city.js?v=20260902-2" defer></script>', { html: true });
           }
         })
         .transform(htmlResponse);
