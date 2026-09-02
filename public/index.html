@@ -37,7 +37,7 @@
         <p>Encontre comércios, serviços, profissionais e produtos perto de você.</p>
         <form class="search" id="searchForm">
           <input id="searchInput" type="search" maxlength="80" placeholder="Ex.: pizza, mecânico, celular, moto..." aria-label="Pesquisar">
-          <input id="cityInput" type="text" maxlength="70" placeholder="Cidade - UF" aria-label="Cidade">
+          <input id="cityInput" type="hidden" value="" aria-hidden="true">
           <button type="submit">Buscar</button>
         </form>
         <div class="categories" id="categoryButtons">
@@ -151,6 +151,7 @@
   <dialog id="detailsDialog"><div class="dialog-card details-card"><button class="dialog-close" data-close="detailsDialog">×</button><div id="detailsContent"></div></div></dialog>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <script src="./app.js" defer></script>
+  <script src="./enhancements.js?v=20260902-2" defer></script>
   <script src="./photo-editor.js" defer></script>
 </body>
 </html>
