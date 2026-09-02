@@ -32,6 +32,8 @@ CREATE TABLE IF NOT EXISTS listings (
   city TEXT NOT NULL,
   description TEXT NOT NULL,
   image_url TEXT,
+  latitude REAL,
+  longitude REAL,
   status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','published','rejected','sold')),
   reviewed_at TEXT,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -50,6 +52,8 @@ CREATE TABLE IF NOT EXISTS businesses (
   hours TEXT,
   description TEXT NOT NULL,
   image_url TEXT,
+  latitude REAL,
+  longitude REAL,
   featured INTEGER NOT NULL DEFAULT 0 CHECK(featured IN (0,1)),
   rating REAL NOT NULL DEFAULT 5.0,
   status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','published','rejected')),
